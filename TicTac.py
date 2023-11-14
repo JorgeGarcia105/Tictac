@@ -1,3 +1,5 @@
+from tkinter import messagebox
+import tkinter as tk
 import copy
 
 # Constantes para las puntuaciones
@@ -11,12 +13,6 @@ LOSE_SCORE = -10
 EMPTY = 0
 X = 1
 O = 2
-
-# Función para imprimir el tablero
-def print_board(board):
-    for row in board:
-        print(" | ".join(["X" if cell == X else "O" if cell == O else " " for cell in row]))
-        print("-" * 9)
 
 # Función para verificar si un jugador ha ganado
 def check_win(board, player):
@@ -34,9 +30,7 @@ def evaluate_move(board, player):
     if check_win(board, player):
         return WIN_SCORE
     elif check_win(board, 3 - player):
-        return LOSE_SCORE
-    elif all(cell != EMPTY for row in board for cell in row):
-        return NEUTRAL_SCORE
+        return -LOSE_SCORE
     else:
         future_moves = []
         for i in range(3):
@@ -44,94 +38,159 @@ def evaluate_move(board, player):
                 if board[i][j] == EMPTY:
                     future_board = copy.deepcopy(board)
                     future_board[i][j] = player
-                    future_moves.append((i, j, evaluate_move(future_board, 3 - player)))
+                    future_score = evaluate_move(future_board, 3 - player)
+                    future_moves.append(future_score)
 
-        best_future_score = min(future_moves, key=lambda x: x[2])[2] if future_moves else NEUTRAL_SCORE
+        best_future_score = max(
+            future_moves) if future_moves else NEUTRAL_SCORE
 
-        if player == X:
-            if best_future_score == WIN_SCORE:
-                return WIN_SCORE
-            elif best_future_score == LOSE_SCORE:
-                return LOSE_SCORE
-            elif best_future_score == FUTURE_WIN_SCORE:
-                return FUTURE_WIN_SCORE
-            elif best_future_score == FUTURE_LOSE_SCORE:
-                return FUTURE_LOSE_SCORE
-            else:
-                return NEUTRAL_SCORE
+        if player == X and best_future_score == WIN_SCORE:
+            return FUTURE_WIN_SCORE
+        elif player == O and best_future_score == -LOSE_SCORE:
+            return -FUTURE_WIN_SCORE
+        elif best_future_score == NEUTRAL_SCORE:
+            return NEUTRAL_SCORE
+        elif check_win(board, player):
+            return WIN_SCORE
+        elif check_win(board, 3 - player):
+            return -LOSE_SCORE
         else:
-            if best_future_score == WIN_SCORE:
-                return LOSE_SCORE
-            elif best_future_score == LOSE_SCORE:
-                return WIN_SCORE
-            elif best_future_score == FUTURE_WIN_SCORE:
-                return FUTURE_LOSE_SCORE
-            elif best_future_score == FUTURE_LOSE_SCORE:
-                return FUTURE_WIN_SCORE
-            else:
-                return NEUTRAL_SCORE
+            return 0
 
 # Función para generar el árbol de búsqueda
-def generate_tree(board, player, depth):
-    if depth == 0:
-        return NEUTRAL_SCORE
+def generate_tree(board, player):
     possible_moves = []
     for i in range(3):
         for j in range(3):
             if board[i][j] == EMPTY:
                 future_board = copy.deepcopy(board)
                 future_board[i][j] = player
-                possible_moves.append((i, j, generate_tree(future_board, 3 - player, depth - 1)))
-    if player == X:
-        return max(possible_moves, key=lambda x: x[2])
-    else:
-        return min(possible_moves, key=lambda x: x[2])
+                possible_moves.append(
+                    (i, j, evaluate_move(future_board, 3 - player)))
 
-# Función principal para el juego
-def play_tictactoe():
-    board = [[EMPTY] * 3 for _ in range(3)]
-    current_player = X
-    max_moves = 9  # Número máximo de movimientos permitidos en un juego de Tic-Tac-Toe
+    return possible_moves
 
-    for move_count in range(max_moves):
-        print_board(board)
-        available_moves = get_available_moves(board)
-        if not available_moves:
-            print("¡Empate!")
-            break
+# Función para imprimir el tablero con "X" y "O"
+def print_board(board):
+    for row in board:
+        print(" | ".join(
+            ["X" if cell == X else "O" if cell == O else " " for cell in row]))
+        print("-" * 9)
 
-        print(f'Turno de Jugador {current_player}:')
-        if current_player == X:
-            print("Movimientos disponibles:", available_moves)
-            row, col = map(int, input("Ingrese la fila y columna (0-8) separadas por espacio: ").split())
+
+def evaluate_and_print(board, player, winner_score):
+    possible_moves = generate_tree(board, player)
+    for move in possible_moves:
+        i, j, score = move
+        print(f"\nEvaluación para colocar {player} en ({i}, {j}):")
+
+        future_board = copy.deepcopy(board)
+        future_board[i][j] = player
+        print_board(future_board)
+
+        # Evaluar si el jugador gana en una jugada futura
+        if check_win(future_board, player):
+            winner_score = FUTURE_WIN_SCORE
+            print(
+                f"Puntuación: {winner_score} puntos: Ganaste en esta futura jugada\n")
+            print(
+                "----------------------------------------------------------------------")
+
+        elif check_win(future_board, 3 - player):
+            winner_score = LOSE_SCORE
+            print(f"Puntuación: {winner_score} puntos: Perdiste\n")
+            return
         else:
-            print("Movimientos disponibles:", available_moves)
-            row, col = map(int, input("Ingrese la fila y columna (0-8) separadas por espacio: ").split())
+            winner_score = NEUTRAL_SCORE
+            evaluate_and_print(future_board, 3 - player, winner_score)
+            print(
+                "-------------------------------Jugadas 2---------------------------------------")
 
-        if (row, col) not in available_moves:
-            print("Movimiento no válido. Intente de nuevo.")
-            continue
+    if winner_score == NEUTRAL_SCORE:
+        print(f"Puntuación: {winner_score} puntos: Empate\n")
 
-        board[row][col] = current_player
-        score = evaluate_move(board, current_player)
-        print(f"Puntuación del movimiento: {score}")
+# Función principal para mostrar las evaluaciones
+def lshow_evaluations():
+    initial_board = [[EMPTY, X, EMPTY],
+                     [O, X, EMPTY],
+                     [X, O, X]]
 
-        if check_win(board, current_player):
-            print_board(board)
-            print(f"¡Jugador {current_player} gana!")
-            break
-        elif move_count == max_moves - 1:
-            print("¡Empate!")
+    print("Tablero inicial:")
+    print_board(initial_board)
 
-        current_player = X if current_player == O else O
+    player = X
 
-def get_available_moves(board):
-    moves = []
-    for i in range(3):
-        for j in range(3):
-            if board[i][j] == EMPTY:
-                moves.append((i, j))
-    return moves
+    # Evaluar si el jugador gana
+    if check_win(initial_board, player):
+        winner_score = WIN_SCORE
+        print(f"Puntuación: {winner_score} puntos: Ganaste\n")
+        return
+    elif check_win(initial_board, 3 - player):
+        winner_score = LOSE_SCORE
+        print(f"Puntuación: {winner_score} puntos: Perdiste\n")
+        return
+    else:
+        winner_score = NEUTRAL_SCORE
+        print("-----------------------------------Posibles Movimientos-----------------------------------")
+        evaluate_and_print(initial_board, player, winner_score)
+
+class TicTacToeGUI:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("Tic Tac Toe")
+        self.current_player = X
+        self.board = [[EMPTY, EMPTY, EMPTY],
+                      [EMPTY, EMPTY, EMPTY],
+                      [EMPTY, EMPTY, EMPTY]]
+
+        self.buttons = [[None]*3 for _ in range(3)]
+
+        for i in range(3):
+            for j in range(3):
+                self.buttons[i][j] = tk.Button(
+                    root, text="", font=("Helvetica", 16), height=2, width=5,
+                    command=lambda row=i, col=j: self.on_button_click(row, col)
+                )
+                self.buttons[i][j].grid(row=i, column=j)
+                
+        self.show_solution_button = tk.Button(
+            root, text="Show Solution", font=("Helvetica", 12),
+            command=self.show_solution
+        )
+        self.show_solution_button.grid(row=3, columnspan=3) 
+        
+        self.reset_game()
+
+    def on_button_click(self, row, col):
+        if self.board[row][col] == EMPTY:
+            self.board[row][col] = self.current_player
+            self.buttons[row][col].config(
+                text="X" if self.current_player == X else "O"
+            )
+
+            if check_win(self.board, self.current_player):
+                messagebox.showinfo(
+                    "Game Over", f"Player {self.current_player} wins!")
+                self.reset_game()
+            elif all(cell != EMPTY for row in self.board for cell in row):
+                messagebox.showinfo("Game Over", "It's a tie!")
+                self.reset_game()
+            else:
+                self.current_player = 3 - self.current_player  # Switch player
+
+    def reset_game(self):
+        for i in range(3):
+            for j in range(3):
+                self.board[i][j] = EMPTY
+                self.buttons[i][j].config(text="")
+        self.current_player = X
+        
+    def show_solution(self):
+        winner_score = NEUTRAL_SCORE
+        evaluate_and_print(self.board, self.current_player, winner_score)
+
 
 if __name__ == "__main__":
-    play_tictactoe()
+    root = tk.Tk()
+    app = TicTacToeGUI(root)
+    root.mainloop()
