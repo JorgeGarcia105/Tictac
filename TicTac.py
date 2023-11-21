@@ -15,6 +15,8 @@ X = 1
 O = 2
 
 # Función para verificar si un jugador ha ganado
+
+
 def check_win(board, player):
     for i in range(3):
         if all(cell == player for cell in board[i]):
@@ -25,39 +27,9 @@ def check_win(board, player):
         return True
     return False
 
-# Función para evaluar una jugada en el árbol
-def evaluate_move(board, player):
-    if check_win(board, player):
-        return WIN_SCORE
-    elif check_win(board, 3 - player):
-        return -LOSE_SCORE
-    else:
-        future_moves = []
-        for i in range(3):
-            for j in range(3):
-                if board[i][j] == EMPTY:
-                    future_board = copy.deepcopy(board)
-                    future_board[i][j] = player
-                    future_score = evaluate_move(future_board, 3 - player)
-                    future_moves.append(future_score)
-
-        best_future_score = max(
-            future_moves) if future_moves else NEUTRAL_SCORE
-
-        if player == X and best_future_score == WIN_SCORE:
-            return FUTURE_WIN_SCORE
-        elif player == O and best_future_score == -LOSE_SCORE:
-            return -FUTURE_WIN_SCORE
-        elif best_future_score == NEUTRAL_SCORE:
-            return NEUTRAL_SCORE
-        elif check_win(board, player):
-            return WIN_SCORE
-        elif check_win(board, 3 - player):
-            return -LOSE_SCORE
-        else:
-            return 0
-
 # Función para generar el árbol de búsqueda
+
+
 def generate_tree(board, player):
     possible_moves = []
     for i in range(3):
@@ -70,12 +42,58 @@ def generate_tree(board, player):
 
     return possible_moves
 
+# Función para evaluar una jugada en el árbol
+
+
+def evaluate_move(board, player):
+    if check_win(board, player):
+        return WIN_SCORE
+    elif check_win(board, 3 - player):
+        return LOSE_SCORE
+    else:
+        future_moves = []
+        for i in range(3):
+            for j in range(3):
+                if board[i][j] == EMPTY:
+                    future_board = copy.deepcopy(board)
+                    future_board[i][j] = player
+                    future_score = evaluate_move(future_board, 3 - player)
+                    future_moves.append(future_score)
+
 # Función para imprimir el tablero con "X" y "O"
+
+
 def print_board(board):
     for row in board:
         print(" | ".join(
             ["X" if cell == X else "O" if cell == O else " " for cell in row]))
         print("-" * 9)
+
+# Función principal para mostrar las evaluaciones
+
+
+def lshow_evaluations():
+    initial_board = [[EMPTY, EMPTY, EMPTY],
+                     [EMPTY, EMPTY, EMPTY],
+                     [EMPTY, EMPTY, EMPTY]]
+    print_board(f"Tablero inicial: {initial_board}")
+    print_board(initial_board)
+
+    player = X
+
+    # Evaluar si el jugador gana
+    if check_win(initial_board, player):
+        winner_score = WIN_SCORE
+        print(f"Puntuación: {winner_score} puntos: Ganaste\n")
+        return
+    elif check_win(initial_board, player):
+        winner_score = LOSE_SCORE
+        print(f"Puntuación: {winner_score} puntos: Perdiste\n")
+        return
+    else:
+        winner_score = NEUTRAL_SCORE
+        print("-----------------------------------Posibles Movimientos-----------------------------------")
+        evaluate_and_print(initial_board, player, winner_score)
 
 
 def evaluate_and_print(board, player, winner_score):
@@ -89,50 +107,25 @@ def evaluate_and_print(board, player, winner_score):
         print_board(future_board)
 
         # Evaluar si el jugador gana en una jugada futura
-        if check_win(future_board, player):
+        if check_win(future_board, player) and player == 1:
             winner_score = FUTURE_WIN_SCORE
             print(
                 f"Puntuación: {winner_score} puntos: Ganaste en esta futura jugada\n")
             print(
                 "----------------------------------------------------------------------")
-
-        elif check_win(future_board, 3 - player):
-            winner_score = LOSE_SCORE
-            print(f"Puntuación: {winner_score} puntos: Perdiste\n")
-            return
-        else:
-            winner_score = NEUTRAL_SCORE
-            evaluate_and_print(future_board, 3 - player, winner_score)
+        elif check_win(future_board, player) and player == 2:
+            winner_score = FUTURE_LOSE_SCORE
+            print(f"Puntuación: {winner_score} puntos: Perdiste en una futura jugada\n")
             print(
-                "-------------------------------Jugadas 2---------------------------------------")
+             "----------------------------------------------------------------------")
+        else: 
+            evaluate_and_print(future_board, 3 - player, winner_score)
+            
+            if move == possible_moves[-1] and winner_score == NEUTRAL_SCORE:
+                print(f"Puntuación: {winner_score} puntos: Empate\n")
+                print(
+                    "----------------------------------------------------------------------")
 
-    if winner_score == NEUTRAL_SCORE:
-        print(f"Puntuación: {winner_score} puntos: Empate\n")
-
-# Función principal para mostrar las evaluaciones
-def lshow_evaluations():
-    initial_board = [[EMPTY, X, EMPTY],
-                     [O, X, EMPTY],
-                     [X, O, X]]
-
-    print("Tablero inicial:")
-    print_board(initial_board)
-
-    player = X
-
-    # Evaluar si el jugador gana
-    if check_win(initial_board, player):
-        winner_score = WIN_SCORE
-        print(f"Puntuación: {winner_score} puntos: Ganaste\n")
-        return
-    elif check_win(initial_board, 3 - player):
-        winner_score = LOSE_SCORE
-        print(f"Puntuación: {winner_score} puntos: Perdiste\n")
-        return
-    else:
-        winner_score = NEUTRAL_SCORE
-        print("-----------------------------------Posibles Movimientos-----------------------------------")
-        evaluate_and_print(initial_board, player, winner_score)
 
 class TicTacToeGUI:
     def __init__(self, root):
@@ -147,18 +140,18 @@ class TicTacToeGUI:
 
         for i in range(3):
             for j in range(3):
-                self.buttons[i][j] = tk.Button(
+                self.buttons[i][j] = tk.Button(  # type: ignore
                     root, text="", font=("Helvetica", 16), height=2, width=5,
                     command=lambda row=i, col=j: self.on_button_click(row, col)
                 )
-                self.buttons[i][j].grid(row=i, column=j)
-                
+                self.buttons[i][j].grid(row=i, column=j)  # type: ignore
+
         self.show_solution_button = tk.Button(
             root, text="Show Solution", font=("Helvetica", 12),
             command=self.show_solution
         )
-        self.show_solution_button.grid(row=3, columnspan=3) 
-        
+        self.show_solution_button.grid(row=3, columnspan=3)
+
         self.reset_game()
 
     def on_button_click(self, row, col):
@@ -173,7 +166,8 @@ class TicTacToeGUI:
                     "Game Over", f"Player {self.current_player} wins!")
                 self.reset_game()
             elif all(cell != EMPTY for row in self.board for cell in row):
-                messagebox.showinfo("Game Over", "It's a tie!")
+                messagebox.showinfo(
+                    "Game Over", "It's a tie! Puntuación: 0 puntos:")
                 self.reset_game()
             else:
                 self.current_player = 3 - self.current_player  # Switch player
@@ -182,9 +176,9 @@ class TicTacToeGUI:
         for i in range(3):
             for j in range(3):
                 self.board[i][j] = EMPTY
-                self.buttons[i][j].config(text="")
+                self.buttons[i][j].config(text="")  # type: ignore
         self.current_player = X
-        
+
     def show_solution(self):
         winner_score = NEUTRAL_SCORE
         evaluate_and_print(self.board, self.current_player, winner_score)
