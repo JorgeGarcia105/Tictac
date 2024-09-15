@@ -36,7 +36,6 @@ Este proyecto requiere Python 3.x. Asegúrate de tener `tkinter` instalado, que 
 
 Para ejecutar el juego, utiliza el siguiente comando en tu terminal:
 
-```bash
 python tic_tac_toe.py
 
 # Sustentacion Taller TicTac
